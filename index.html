@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Instrumentos de Campo</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#12151a">
+<style>
+  :root{
+    --bg:#12151a;
+    --panel:#1b2029;
+    --panel-2:#20262f;
+    --bezel-1:#2a3038;
+    --bezel-2:#0c0e12;
+    --brass:#c9a35a;
+    --brass-dim:#6e5c39;
+    --text:#ece7dd;
+    --muted:#8b93a0;
+    --good:#5fa986;
+    --warn:#c1554a;
+    --face:#0e1116;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);}
+  body{
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    align-items:stretch;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, #232a34 0%, var(--bg) 55%);
+  }
+  .device{
+    width:100%;
+    max-width:430px;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+    padding:22px 20px 28px;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .brand{
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:13px;
+    letter-spacing:.18em;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  .brand b{color:var(--brass);font-weight:700;}
+  .lamp{
+    width:9px;height:9px;border-radius:50%;
+    background:#3a4048;
+    box-shadow:inset 0 0 2px #000;
+    transition:background .3s, box-shadow .3s;
+  }
+  .lamp.on{background:var(--good);box-shadow:0 0 8px var(--good), inset 0 0 2px #063;}
+  .lamp.warn{background:var(--warn);box-shadow:0 0 8px var(--warn);}
+  .status-row{display:flex;align-items:center;gap:7px;}
+  .status-row span{font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:22px;
+  }
+
+  /* Bezel / instrument housing */
+  .instrument{
+    position:relative;
+    width:min(78vw,300px);
+    aspect-ratio:1;
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 35% 30%, var(--bezel-1), var(--bezel-2) 70%);
+    box-shadow:
+      0 18px 40px -12px #000,
+      inset 0 0 0 2px #3a414c,
+      inset 0 -6px 14px #000;
+    padding:14px;
+    display:flex;
+  }
+  .face{
+    width:100%;height:100%;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #171b21, var(--face) 75%);
+    box-shadow:inset 0 0 18px #000, inset 0 0 0 1px #2a2f38;
+    position:relative;
+    overflow:hidden;
+  }
+  svg{width:100%;height:100%;display:block;}
+  .tick{stroke:#565f6c;stroke-width:1.4;}
+  .tick.major{stroke:var(--text);stroke-width:2.2;}
+  .label-cardinal{
+    fill:var(--brass);
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-weight:700;
+    font-size:17px;
+    text-anchor:middle;
+  }
+  .label-inter{
+    fill:var(--muted);
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-weight:500;
+    font-size:10px;
+    text-anchor:middle;
+  }
+  #compass-rose{transform-origin:160px 160px;transition:transform .15s ease-out;}
+  .pointer{fill:var(--brass);}
+  .readout-overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+  .big-num{
+    font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
+    font-weight:700;
+    font-size:38px;
+    letter-spacing:.02em;
+    color:var(--text);
+    line-height:1;
+  }
+  .big-num small{font-size:15px;color:var(--muted);font-weight:400;margin-left:3px;}
+  .sub-num{
+    font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+    letter-spacing:.03em;
+  }
+  .sub-num.cardinal{color:var(--brass);font-size:14px;font-weight:700;letter-spacing:.15em;}
+
+  #alt-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
+  #alt-arc{stroke:var(--brass);stroke-width:3;fill:none;opacity:.85;}
+  #alt-arc-bg{stroke:#2a2f38;stroke-width:3;fill:none;}
+
+  .hidden{display:none !important;}
+
+  /* Switch */
+  .switch{
+    display:flex;
+    background:var(--panel);
+    border-radius:14px;
+    padding:5px;
+    gap:5px;
+    box-shadow:inset 0 2px 6px #000, 0 1px 0 #2c333d;
+    width:min(78vw,300px);
+  }
+  .switch button{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    background:transparent;
+    color:var(--muted);
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-weight:700;
+    font-size:12.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    padding:12px 8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    transition:color .2s;
+  }
+  .switch button .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:#454c57;
+    transition:background .2s, box-shadow .2s;
+  }
+  .switch button.active{
+    background:var(--panel-2);
+    color:var(--text);
+    box-shadow:0 2px 4px #000, inset 0 0 0 1px #333a44;
+  }
+  .switch button.active .dot{background:var(--brass);box-shadow:0 0 6px var(--brass);}
+
+  .action-row{
+    width:min(78vw,300px);
+    display:flex;
+    gap:10px;
+  }
+  .btn{
+    flex:1;
+    border:1px solid #333a44;
+    background:var(--panel);
+    color:var(--text);
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:13px;
+    font-weight:500;
+    padding:12px;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .btn.primary{
+    background:linear-gradient(180deg,#d8b46e,var(--brass));
+    color:#1a1408;
+    border:none;
+    font-weight:700;
+  }
+  .btn:active{transform:translateY(1px);}
+
+  .permission-screen{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:16px;
+    padding:0 8px;
+  }
+  .permission-screen h1{
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:19px;
+    margin:0;
+  }
+  .permission-screen p{
+    color:var(--muted);
+    font-size:13.5px;
+    line-height:1.5;
+    margin:0;
+    max-width:280px;
+  }
+  .error-msg{
+    color:var(--warn);
+    font-size:11.5px;
+    font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
+    letter-spacing:.02em;
+    min-height:14px;
+    text-align:center;
+  }
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:10.5px;
+    letter-spacing:.06em;
+    margin-top:20px;
+    text-transform:uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="device">
+  <header>
+    <div class="brand"><b>ALT</b> · BRÚJULA</div>
+    <div class="status-row"><span id="status-label">Inactivo</span><div class="lamp" id="status-lamp"></div></div>
+  </header>
+
+  <main>
+    <!-- Permission gate -->
+    <div class="permission-screen" id="gate">
+      <h1>Activar sensores</h1>
+      <p>Esta app usa la brújula y el GPS de tu teléfono para leer orientación y altitud en tiempo real. Los datos no salen del dispositivo.</p>
+      <button class="btn primary" id="activate-btn" style="width:200px;">Activar</button>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+
+    <!-- Instrument (hidden until activated) -->
+    <div id="instrument-wrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:22px;">
+      <div class="instrument">
+        <div class="face">
+          <svg viewBox="0 0 320 320">
+            <!-- COMPASS -->
+            <g id="compass-view">
+              <g id="compass-rose">
+                <g id="compass-ticks"></g>
+              </g>
+              <polygon class="pointer" points="160,26 152,50 168,50"></polygon>
+              <circle cx="160" cy="160" r="3" fill="var(--brass)"></circle>
+            </g>
+            <!-- ALTIMETER -->
+            <g id="alt-view" class="hidden">
+              <circle id="alt-arc-bg" cx="160" cy="160" r="128"></circle>
+              <circle id="alt-arc" cx="160" cy="160" r="128" stroke-dasharray="804" stroke-dashoffset="804"></circle>
+              <g id="alt-needle">
+                <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
+              </g>
+              <circle cx="160" cy="160" r="4" fill="var(--brass)"></circle>
+            </g>
+          </svg>
+          <div class="readout-overlay">
+            <!-- compass readout -->
+            <div id="compass-readout">
+              <div class="big-num" id="heading-num">--<small>°</small></div>
+              <div class="sub-num cardinal" id="heading-cardinal">SIN SEÑAL</div>
+            </div>
+            <!-- altimeter readout -->
+            <div id="alt-readout" class="hidden">
+              <div class="big-num" id="alt-num">--<small>m</small></div>
+              <div class="sub-num" id="alt-sub">altitud absoluta —</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="switch">
+        <button id="btn-compass" class="active"><span class="dot"></span>Brújula</button>
+        <button id="btn-alt"><span class="dot"></span>Altímetro</button>
+      </div>
+
+      <div class="action-row">
+        <button class="btn" id="ref-btn">Fijar referencia</button>
+        <button class="btn" id="clear-btn">Limpiar</button>
+      </div>
+      <div class="error-msg" id="live-error"></div>
+    </div>
+  </main>
+
+  <footer>Panel de instrumentos · uso en campo</footer>
+</div>
+
+<script>
+(function(){
+  const gate = document.getElementById('gate');
+  const wrap = document.getElementById('instrument-wrap');
+  const activateBtn = document.getElementById('activate-btn');
+  const errorMsg = document.getElementById('error-msg');
+  const liveError = document.getElementById('live-error');
+  const statusLamp = document.getElementById('status-lamp');
+  const statusLabel = document.getElementById('status-label');
+
+  const btnCompass = document.getElementById('btn-compass');
+  const btnAlt = document.getElementById('btn-alt');
+  const compassView = document.getElementById('compass-view');
+  const altView = document.getElementById('alt-view');
+  const compassReadout = document.getElementById('compass-readout');
+  const altReadout = document.getElementById('alt-readout');
+  const rose = document.getElementById('compass-rose');
+  const headingNum = document.getElementById('heading-num');
+  const headingCardinal = document.getElementById('heading-cardinal');
+
+  const altNeedle = document.getElementById('alt-needle');
+  const altArc = document.getElementById('alt-arc');
+  const altNum = document.getElementById('alt-num');
+  const altSub = document.getElementById('alt-sub');
+  const refBtn = document.getElementById('ref-btn');
+  const clearBtn = document.getElementById('clear-btn');
+
+  let mode = 'compass';
+  let compassActive = false;
+  let gpsActive = false;
+  let referenceAltitude = null;
+  let currentAltitude = null;
+  let currentAccuracy = null;
+
+  const CIRC = 2 * Math.PI * 128; // ~804.2
+
+  function buildCompassTicks(){
+    const group = document.getElementById('compass-ticks');
+    const cx = 160, cy = 160;
+    const rOuter = 140;
+    const cardinals = {0:'N',90:'E',180:'S',270:'O'};
+    const inter = {45:'NE',135:'SE',225:'SO',315:'NO'};
+    let svg = '';
+    for(let deg=0; deg<360; deg+=10){
+      const isMajor = deg % 30 === 0;
+      const rInner = isMajor ? rOuter-14 : rOuter-8;
+      const rad = (deg-90) * Math.PI/180;
+      const x1 = cx + rOuter*Math.cos(rad), y1 = cy + rOuter*Math.sin(rad);
+      const x2 = cx + rInner*Math.cos(rad), y2 = cy + rInner*Math.sin(rad);
+      svg += `<line class="tick${isMajor?' major':''}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+    }
+    for(const deg in cardinals){
+      const rad = (deg-90) * Math.PI/180;
+      const x = cx + (rOuter-28)*Math.cos(rad), y = cy + (rOuter-28)*Math.sin(rad);
+      svg += `<text class="label-cardinal" x="${x.toFixed(1)}" y="${(y+6).toFixed(1)}">${cardinals[deg]}</text>`;
+    }
+    for(const deg in inter){
+      const rad = (deg-90) * Math.PI/180;
+      const x = cx + (rOuter-24)*Math.cos(rad), y = cy + (rOuter-24)*Math.sin(rad);
+      svg += `<text class="label-inter" x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}">${inter[deg]}</text>`;
+    }
+    group.innerHTML = svg;
+  }
+  buildCompassTicks();
+
+  function cardinalFromDeg(deg){
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    return dirs[Math.round(deg/22.5) % 16];
+  }
+
+  function updateStatus(){
+    if(compassActive && gpsActive){
+      statusLamp.className = 'lamp on';
+      statusLabel.textContent = 'Activo';
+    } else if(compassActive || gpsActive){
+      statusLamp.className = 'lamp warn';
+      statusLabel.textContent = 'Parcial';
+    } else {
+      statusLamp.className = 'lamp';
+      statusLabel.textContent = 'Inactivo';
+    }
+  }
+
+  function handleOrientation(e){
+    let heading;
+    if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)){
+      heading = e.webkitCompassHeading;
+    } else if (e.alpha !== null && e.alpha !== undefined){
+      heading = 360 - e.alpha;
+    } else {
+      return;
+    }
+    heading = ((heading % 360) + 360) % 360;
+    compassActive = true;
+    updateStatus();
+    rose.style.transform = `rotate(${-heading}deg)`;
+    headingNum.innerHTML = Math.round(heading) + '<small>°</small>';
+    headingCardinal.textContent = cardinalFromDeg(heading);
+  }
+
+  function onPosition(pos){
+    const alt = pos.coords.altitude;
+    currentAccuracy = pos.coords.altitudeAccuracy;
+    if (alt === null || alt === undefined){
+      liveError.textContent = mode==='alt' ? 'GPS sin dato de altitud en este dispositivo.' : '';
+      return;
+    }
+    gpsActive = true;
+    updateStatus();
+    currentAltitude = alt;
+    renderAltitude();
+  }
+
+  function onPositionError(err){
+    liveError.textContent = mode==='alt' ? 'No se pudo acceder a la ubicación.' : '';
+  }
+
+  function renderAltitude(){
+    if(currentAltitude === null) return;
+    const display = referenceAltitude === null ? currentAltitude : (currentAltitude - referenceAltitude);
+    const sign = referenceAltitude !== null && display > 0 ? '+' : '';
+    altNum.innerHTML = sign + Math.round(display) + '<small>m</small>';
+    if(referenceAltitude === null){
+      altSub.textContent = currentAccuracy ? `precisión ± ${Math.round(currentAccuracy)} m` : 'altitud absoluta (GPS)';
+    } else {
+      altSub.textContent = `abs. ${Math.round(currentAltitude)} m · desde referencia`;
+    }
+    const frac = ((currentAltitude % 100) + 100) % 100;
+    const needleDeg = (frac/100) * 360;
+    altNeedle.style.transform = `rotate(${needleDeg}deg)`;
+    const dash = (frac/100) * CIRC;
+    altArc.setAttribute('stroke-dashoffset', (CIRC - dash).toFixed(1));
+  }
+
+  refBtn.addEventListener('click', function(){
+    if(currentAltitude !== null){
+      referenceAltitude = currentAltitude;
+      renderAltitude();
+    }
+  });
+  clearBtn.addEventListener('click', function(){
+    referenceAltitude = null;
+    renderAltitude();
+  });
+
+  function setMode(next){
+    mode = next;
+    liveError.textContent = '';
+    if(next==='compass'){
+      btnCompass.classList.add('active');
+      btnAlt.classList.remove('active');
+      compassView.classList.remove('hidden');
+      altView.classList.add('hidden');
+      compassReadout.classList.remove('hidden');
+      altReadout.classList.add('hidden');
+    } else {
+      btnAlt.classList.add('active');
+      btnCompass.classList.remove('active');
+      altView.classList.remove('hidden');
+      compassView.classList.add('hidden');
+      altReadout.classList.remove('hidden');
+      compassReadout.classList.add('hidden');
+    }
+  }
+  btnCompass.addEventListener('click', ()=>setMode('compass'));
+  btnAlt.addEventListener('click', ()=>setMode('alt'));
+
+  async function activate(){
+    errorMsg.textContent = '';
+    let anyError = [];
+
+    // Geolocation
+    if(navigator.geolocation){
+      navigator.geolocation.watchPosition(onPosition, onPositionError, {enableHighAccuracy:true, maximumAge:1000});
+    } else {
+      anyError.push('GPS no disponible en este navegador.');
+    }
+
+    // Device orientation
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const resp = await DeviceOrientationEvent.requestPermission();
+        if(resp === 'granted'){
+          window.addEventListener('deviceorientation', handleOrientation, true);
+        } else {
+          anyError.push('Permiso de orientación denegado.');
+        }
+      }catch(err){
+        anyError.push('No se pudo solicitar el sensor de orientación.');
+      }
+    } else if ('ondeviceorientationabsolute' in window){
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    } else if (typeof DeviceOrientationEvent !== 'undefined'){
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    } else {
+      anyError.push('Brújula no disponible en este dispositivo.');
+    }
+
+    gate.classList.add('hidden');
+    wrap.classList.remove('hidden');
+    if(anyError.length){
+      liveError.textContent = anyError.join(' ');
+    }
+    updateStatus();
+  }
+
+  activateBtn.addEventListener('click', activate);
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
