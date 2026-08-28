@@ -140,6 +140,22 @@
     cursor:pointer;
   }
   #alt-settings-btn:active{transform:translateY(1px);}
+  #alt-info-btn{
+    position:absolute;
+    top:10px;right:10px;z-index:5;
+    width:30px;height:30px;
+    border-radius:50%;
+    border:1px solid #333a44;
+    background:var(--panel);
+    color:var(--muted);
+    font-size:14px;
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-style:italic;
+    font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  #alt-info-btn:active{transform:translateY(1px);}
   #alt-settings-panel{
     position:absolute;
     top:46px;left:10px;z-index:6;
@@ -175,10 +191,37 @@
     color:#1a1408;
     border-color:var(--brass);
   }
+  #info-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    width:min(78vw,300px);
+  }
+  .pill{
+    background:var(--panel);
+    border:1px solid #333a44;
+    border-radius:999px;
+    padding:6px 12px;
+    font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
+    font-size:11px;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+  }
+  .pill-label{
+    color:var(--brass);
+    font-weight:700;
+    font-size:9.5px;
+    letter-spacing:.06em;
+  }
   .readout-overlay{
     position:absolute;inset:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     pointer-events:none;
+    text-align:center;
   }
   .big-num{
     font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
@@ -187,6 +230,7 @@
     letter-spacing:.02em;
     color:var(--text);
     line-height:1;
+    text-align:center;
   }
   .big-num small{font-size:15px;color:var(--muted);font-weight:400;margin-left:3px;}
   .sub-num{
@@ -195,11 +239,16 @@
     color:var(--muted);
     margin-top:6px;
     letter-spacing:.03em;
+    text-align:center;
   }
   .sub-num.cardinal{color:var(--brass);font-size:14px;font-weight:700;letter-spacing:.15em;}
   .sub-num.delta{color:var(--warn);font-size:12.5px;font-weight:700;margin-top:3px;letter-spacing:.03em;}
+  .sub-num.mid{font-size:17px;color:var(--text);font-weight:500;margin-top:9px;}
 
   #alt-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
+  #alt-ref-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
+  .ref-pointer-thin{fill:var(--warn);}
+  .delta-arc{stroke:var(--brass);stroke-width:5;fill:none;stroke-linecap:round;opacity:.85;}
 
   .hidden{display:none !important;}
 
@@ -327,6 +376,7 @@
     <div id="instrument-wrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:22px;">
       <div class="instrument">
         <button id="alt-settings-btn" class="hidden" aria-label="Configurar escala del altímetro">⚙</button>
+        <button id="alt-info-btn" class="hidden" aria-label="Ver coordenadas y precisión">i</button>
         <div id="alt-settings-panel" class="hidden">
           <div class="settings-title">Escala máxima</div>
           <div class="km-grid" id="km-grid"></div>
@@ -337,6 +387,7 @@
             <g id="compass-view">
               <g id="compass-rose">
                 <g id="compass-ticks"></g>
+                <path id="heading-delta-arc" class="delta-arc hidden" d=""></path>
                 <g id="ref-marker" class="hidden">
                   <polygon class="ref-pointer" points="160,16 152,4 168,4"></polygon>
                 </g>
@@ -347,6 +398,10 @@
             <!-- ALTIMETER -->
             <g id="alt-view" class="hidden">
               <g id="alt-ticks"></g>
+              <path id="alt-delta-arc" class="delta-arc hidden" d=""></path>
+              <g id="alt-ref-needle" class="hidden">
+                <polygon class="ref-pointer-thin" points="160,44 158,160 162,160"></polygon>
+              </g>
               <g id="alt-needle">
                 <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
               </g>
@@ -368,6 +423,8 @@
           </div>
         </div>
       </div>
+
+      <div id="info-strip" class="hidden"></div>
 
       <div class="switch">
         <button id="btn-compass" class="active"><span class="dot"></span>Brújula</button>
@@ -406,8 +463,11 @@
   const headingCardinal = document.getElementById('heading-cardinal');
   const headingDelta = document.getElementById('heading-delta');
   const refMarker = document.getElementById('ref-marker');
+  const headingDeltaArc = document.getElementById('heading-delta-arc');
 
   const altNeedle = document.getElementById('alt-needle');
+  const altRefNeedle = document.getElementById('alt-ref-needle');
+  const altDeltaArc = document.getElementById('alt-delta-arc');
   const altNum = document.getElementById('alt-num');
   const altSub = document.getElementById('alt-sub');
   const refBtn = document.getElementById('ref-btn');
@@ -415,6 +475,8 @@
   const altSettingsBtn = document.getElementById('alt-settings-btn');
   const altSettingsPanel = document.getElementById('alt-settings-panel');
   const kmGrid = document.getElementById('km-grid');
+  const altInfoBtn = document.getElementById('alt-info-btn');
+  const infoStrip = document.getElementById('info-strip');
 
   let mode = 'compass';
   let compassActive = false;
@@ -423,7 +485,23 @@
   let referenceAltitude = null;
   let currentAltitude = null;
   let currentAccuracy = null;
+  let currentLat = null;
+  let currentLon = null;
   let maxKmAltimeter = 5;
+  let infoState = 0;
+
+  function polarPoint(cx, cy, r, angleDeg){
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  function arcPath(cx, cy, r, startDeg, sweepDeg){
+    const endDeg = startDeg + sweepDeg;
+    const start = polarPoint(cx, cy, r, startDeg);
+    const end = polarPoint(cx, cy, r, endDeg);
+    const largeArc = Math.abs(sweepDeg) > 180 ? 1 : 0;
+    const sweepFlag = sweepDeg >= 0 ? 1 : 0;
+    return `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+  }
 
   const CIRC = 2 * Math.PI * 128; // ~804.2
 
@@ -570,6 +648,7 @@
   function updateHeadingDelta(heading){
     if (referenceHeadingCompass === null){
       headingDelta.classList.add('hidden');
+      headingDeltaArc.classList.add('hidden');
       return;
     }
     let delta = heading - referenceHeadingCompass;
@@ -577,11 +656,18 @@
     const sign = delta > 0 ? '+' : (delta < 0 ? '−' : '');
     headingDelta.textContent = `${sign}${Math.abs(Math.round(delta))}° desde marca`;
     headingDelta.classList.remove('hidden');
+
+    const d = arcPath(160, 160, 100, referenceHeadingCompass, delta);
+    headingDeltaArc.setAttribute('d', d);
+    headingDeltaArc.classList.remove('hidden');
   }
 
   function onPosition(pos){
     const alt = pos.coords.altitude;
     currentAccuracy = pos.coords.altitudeAccuracy;
+    currentLat = pos.coords.latitude;
+    currentLon = pos.coords.longitude;
+    if (infoState > 0) renderInfoStrip();
     if (alt === null || alt === undefined){
       liveError.textContent = mode==='alt' ? 'GPS sin dato de altitud en este dispositivo.' : '';
       return;
@@ -597,19 +683,50 @@
   }
 
   function renderAltitude(){
-    if(currentAltitude === null) return;
-    const display = referenceAltitude === null ? currentAltitude : (currentAltitude - referenceAltitude);
-    const sign = referenceAltitude !== null && display > 0 ? '+' : '';
-    altNum.innerHTML = sign + Math.round(display) + '<small>m</small>';
-    if(referenceAltitude === null){
-      altSub.textContent = currentAccuracy ? `precisión ± ${Math.round(currentAccuracy)} m` : 'altitud absoluta (GPS)';
-    } else {
-      altSub.textContent = `abs. ${Math.round(currentAltitude)} m · desde referencia`;
+    const totalMeters = maxKmAltimeter * 1000;
+
+    if (currentAltitude !== null){
+      const display = referenceAltitude === null ? currentAltitude : (currentAltitude - referenceAltitude);
+      const sign = referenceAltitude !== null && display > 0 ? '+' : '';
+      altNum.innerHTML = sign + Math.round(display) + '<small>m</small>';
+
+      if (referenceAltitude === null){
+        altSub.classList.remove('mid');
+        altSub.textContent = currentAccuracy ? `precisión ± ${Math.round(currentAccuracy)} m` : 'altitud absoluta (GPS)';
+      } else {
+        altSub.classList.add('mid');
+        altSub.textContent = `${Math.round(currentAltitude)} m absolutos`;
+      }
+
+      const clamped = Math.max(0, Math.min(currentAltitude, totalMeters));
+      const needleDeg = ALT_START_ANGLE + (clamped / totalMeters) * ALT_SWEEP;
+      altNeedle.style.transform = `rotate(${needleDeg}deg)`;
+    }
+
+    updateAltReference();
+  }
+
+  function updateAltReference(){
+    if (referenceAltitude === null){
+      altRefNeedle.classList.add('hidden');
+      altDeltaArc.classList.add('hidden');
+      return;
     }
     const totalMeters = maxKmAltimeter * 1000;
-    const clamped = Math.max(0, Math.min(currentAltitude, totalMeters));
-    const needleDeg = ALT_START_ANGLE + (clamped / totalMeters) * ALT_SWEEP;
-    altNeedle.style.transform = `rotate(${needleDeg}deg)`;
+    const clampedRef = Math.max(0, Math.min(referenceAltitude, totalMeters));
+    const refDeg = ALT_START_ANGLE + (clampedRef / totalMeters) * ALT_SWEEP;
+    altRefNeedle.style.transform = `rotate(${refDeg}deg)`;
+    altRefNeedle.classList.remove('hidden');
+
+    if (currentAltitude === null){
+      altDeltaArc.classList.add('hidden');
+      return;
+    }
+    const clampedCur = Math.max(0, Math.min(currentAltitude, totalMeters));
+    const curDeg = ALT_START_ANGLE + (clampedCur / totalMeters) * ALT_SWEEP;
+    const d = arcPath(160, 160, 118, refDeg, curDeg - refDeg);
+    altDeltaArc.setAttribute('d', d);
+    altDeltaArc.classList.remove('hidden');
   }
 
   function setCompassReference(){
@@ -624,7 +741,34 @@
     referenceHeadingCompass = null;
     refMarker.classList.add('hidden');
     headingDelta.classList.add('hidden');
+    headingDeltaArc.classList.add('hidden');
   }
+
+  function renderInfoStrip(){
+    if (infoState === 0){
+      infoStrip.classList.add('hidden');
+      infoStrip.innerHTML = '';
+      return;
+    }
+    const coordText = (currentLat !== null && currentLon !== null)
+      ? `${currentLat.toFixed(5)}°, ${currentLon.toFixed(5)}°`
+      : 'sin señal GPS';
+    let html = `<div class="pill"><span class="pill-label">COORD</span>${coordText}</div>`;
+    if (infoState === 2){
+      const vAcc = (currentAccuracy !== null && currentAccuracy !== undefined)
+        ? `± ${Math.round(currentAccuracy)} m`
+        : 'n/d';
+      html += `<div class="pill"><span class="pill-label">SAT</span>no disp. en navegador</div>`;
+      html += `<div class="pill"><span class="pill-label">PREC. V</span>${vAcc}</div>`;
+    }
+    infoStrip.innerHTML = html;
+    infoStrip.classList.remove('hidden');
+  }
+
+  altInfoBtn.addEventListener('click', function(){
+    infoState = (infoState + 1) % 3;
+    renderInfoStrip();
+  });
 
   refBtn.addEventListener('click', function(){
     if (mode === 'compass'){
@@ -655,6 +799,9 @@
       altReadout.classList.add('hidden');
       altSettingsBtn.classList.add('hidden');
       altSettingsPanel.classList.add('hidden');
+      altInfoBtn.classList.add('hidden');
+      infoState = 0;
+      renderInfoStrip();
     } else {
       btnAlt.classList.add('active');
       btnCompass.classList.remove('active');
@@ -663,6 +810,7 @@
       altReadout.classList.remove('hidden');
       compassReadout.classList.add('hidden');
       altSettingsBtn.classList.remove('hidden');
+      altInfoBtn.classList.remove('hidden');
     }
   }
   btnCompass.addEventListener('click', ()=>setMode('compass'));
