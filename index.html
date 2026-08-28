@@ -46,17 +46,9 @@
   header{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:center;
     margin-bottom:18px;
   }
-  .brand{
-    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
-    font-size:13px;
-    letter-spacing:.18em;
-    color:var(--muted);
-    text-transform:uppercase;
-  }
-  .brand b{color:var(--brass);font-weight:700;}
   .lamp{
     width:9px;height:9px;border-radius:50%;
     background:#3a4048;
@@ -248,7 +240,9 @@
   #alt-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
   #alt-ref-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
   .ref-pointer-thin{fill:var(--warn);}
-  .delta-arc{stroke:var(--brass);stroke-width:5;fill:none;stroke-linecap:round;opacity:.85;}
+  .delta-arc{fill:none;stroke-linecap:round;opacity:.85;}
+  #heading-delta-arc{stroke:var(--warn);stroke-width:10;}
+  #alt-delta-arc{stroke:var(--brass);stroke-width:5;}
 
   .hidden{display:none !important;}
 
@@ -359,7 +353,6 @@
 <body>
 <div class="device">
   <header>
-    <div class="brand"><b>ALT</b> · BRÚJULA</div>
     <div class="status-row"><span id="status-label">Inactivo</span><div class="lamp" id="status-lamp"></div></div>
   </header>
 
@@ -400,7 +393,7 @@
               <g id="alt-ticks"></g>
               <path id="alt-delta-arc" class="delta-arc hidden" d=""></path>
               <g id="alt-ref-needle" class="hidden">
-                <polygon class="ref-pointer-thin" points="160,44 158,160 162,160"></polygon>
+                <polygon class="ref-pointer-thin" points="160,42 157,24 163,24"></polygon>
               </g>
               <g id="alt-needle">
                 <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
@@ -418,7 +411,7 @@
             <!-- altimeter readout -->
             <div id="alt-readout" class="hidden">
               <div class="big-num" id="alt-num">--<small>m</small></div>
-              <div class="sub-num" id="alt-sub">altitud absoluta —</div>
+              <div class="sub-num" id="alt-sub">GPS —</div>
             </div>
           </div>
         </div>
@@ -657,7 +650,7 @@
     headingDelta.textContent = `${sign}${Math.abs(Math.round(delta))}° desde marca`;
     headingDelta.classList.remove('hidden');
 
-    const d = arcPath(160, 160, 100, referenceHeadingCompass, delta);
+    const d = arcPath(160, 160, 139, referenceHeadingCompass, delta);
     headingDeltaArc.setAttribute('d', d);
     headingDeltaArc.classList.remove('hidden');
   }
@@ -692,10 +685,10 @@
 
       if (referenceAltitude === null){
         altSub.classList.remove('mid');
-        altSub.textContent = currentAccuracy ? `precisión ± ${Math.round(currentAccuracy)} m` : 'altitud absoluta (GPS)';
+        altSub.textContent = currentAccuracy ? `precisión ± ${Math.round(currentAccuracy)} m` : 'GPS';
       } else {
         altSub.classList.add('mid');
-        altSub.textContent = `${Math.round(currentAltitude)} m absolutos`;
+        altSub.textContent = `${Math.round(currentAltitude)} m`;
       }
 
       const clamped = Math.max(0, Math.min(currentAltitude, totalMeters));
