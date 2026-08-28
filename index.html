@@ -118,6 +118,7 @@
   }
   #compass-rose{transform-origin:160px 160px;transition:transform .15s ease-out;}
   .pointer{fill:var(--brass);}
+  .ref-pointer{fill:var(--warn);}
   .readout-overlay{
     position:absolute;inset:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -140,6 +141,7 @@
     letter-spacing:.03em;
   }
   .sub-num.cardinal{color:var(--brass);font-size:14px;font-weight:700;letter-spacing:.15em;}
+  .sub-num.delta{color:var(--warn);font-size:12.5px;font-weight:700;margin-top:3px;letter-spacing:.03em;}
 
   #alt-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
   #alt-arc{stroke:var(--brass);stroke-width:3;fill:none;opacity:.85;}
@@ -276,6 +278,9 @@
             <g id="compass-view">
               <g id="compass-rose">
                 <g id="compass-ticks"></g>
+                <g id="ref-marker" class="hidden">
+                  <polygon class="ref-pointer" points="160,58 152,34 168,34"></polygon>
+                </g>
               </g>
               <polygon class="pointer" points="160,26 152,50 168,50"></polygon>
               <circle cx="160" cy="160" r="3" fill="var(--brass)"></circle>
@@ -295,6 +300,7 @@
             <div id="compass-readout">
               <div class="big-num" id="heading-num">--<small>°</small></div>
               <div class="sub-num cardinal" id="heading-cardinal">SIN SEÑAL</div>
+              <div class="sub-num delta hidden" id="heading-delta">—</div>
             </div>
             <!-- altimeter readout -->
             <div id="alt-readout" class="hidden">
@@ -340,6 +346,8 @@
   const rose = document.getElementById('compass-rose');
   const headingNum = document.getElementById('heading-num');
   const headingCardinal = document.getElementById('heading-cardinal');
+  const headingDelta = document.getElementById('heading-delta');
+  const refMarker = document.getElementById('ref-marker');
 
   const altNeedle = document.getElementById('alt-needle');
   const altArc = document.getElementById('alt-arc');
@@ -351,6 +359,7 @@
   let mode = 'compass';
   let compassActive = false;
   let gpsActive = false;
+  let referenceHeadingCompass = null;
   let referenceAltitude = null;
   let currentAltitude = null;
   let currentAccuracy = null;
@@ -404,6 +413,9 @@
     }
   }
 
+  let roseRotation = 0;
+  let lastHeadingRaw = null;
+
   function handleOrientation(e){
     let heading;
     if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)){
@@ -416,9 +428,33 @@
     heading = ((heading % 360) + 360) % 360;
     compassActive = true;
     updateStatus();
-    rose.style.transform = `rotate(${-heading}deg)`;
+
+    if (lastHeadingRaw === null){
+      roseRotation = -heading;
+    } else {
+      let delta = heading - lastHeadingRaw;
+      if (delta > 180) delta -= 360;
+      if (delta < -180) delta += 360;
+      roseRotation -= delta;
+    }
+    lastHeadingRaw = heading;
+
+    rose.style.transform = `rotate(${roseRotation}deg)`;
     headingNum.innerHTML = Math.round(heading) + '<small>°</small>';
     headingCardinal.textContent = cardinalFromDeg(heading);
+    updateHeadingDelta(heading);
+  }
+
+  function updateHeadingDelta(heading){
+    if (referenceHeadingCompass === null){
+      headingDelta.classList.add('hidden');
+      return;
+    }
+    let delta = heading - referenceHeadingCompass;
+    delta = ((delta + 180) % 360 + 360) % 360 - 180;
+    const sign = delta > 0 ? '+' : (delta < 0 ? '−' : '');
+    headingDelta.textContent = `${sign}${Math.abs(Math.round(delta))}° desde marca`;
+    headingDelta.classList.remove('hidden');
   }
 
   function onPosition(pos){
@@ -455,15 +491,35 @@
     altArc.setAttribute('stroke-dashoffset', (CIRC - dash).toFixed(1));
   }
 
+  function setCompassReference(){
+    if (lastHeadingRaw === null) return;
+    referenceHeadingCompass = lastHeadingRaw;
+    refMarker.setAttribute('transform', `rotate(${referenceHeadingCompass} 160 160)`);
+    refMarker.classList.remove('hidden');
+    updateHeadingDelta(lastHeadingRaw);
+  }
+
+  function clearCompassReference(){
+    referenceHeadingCompass = null;
+    refMarker.classList.add('hidden');
+    headingDelta.classList.add('hidden');
+  }
+
   refBtn.addEventListener('click', function(){
-    if(currentAltitude !== null){
+    if (mode === 'compass'){
+      setCompassReference();
+    } else if (currentAltitude !== null){
       referenceAltitude = currentAltitude;
       renderAltitude();
     }
   });
   clearBtn.addEventListener('click', function(){
-    referenceAltitude = null;
-    renderAltitude();
+    if (mode === 'compass'){
+      clearCompassReference();
+    } else {
+      referenceAltitude = null;
+      renderAltitude();
+    }
   });
 
   function setMode(next){
