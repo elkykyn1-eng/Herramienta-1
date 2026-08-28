@@ -200,8 +200,6 @@
   .sub-num.delta{color:var(--warn);font-size:12.5px;font-weight:700;margin-top:3px;letter-spacing:.03em;}
 
   #alt-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
-  #alt-arc{stroke:var(--brass);stroke-width:3;fill:none;opacity:.85;}
-  #alt-arc-bg{stroke:#2a2f38;stroke-width:3;fill:none;}
 
   .hidden{display:none !important;}
 
@@ -340,7 +338,7 @@
               <g id="compass-rose">
                 <g id="compass-ticks"></g>
                 <g id="ref-marker" class="hidden">
-                  <polygon class="ref-pointer" points="160,58 152,34 168,34"></polygon>
+                  <polygon class="ref-pointer" points="160,16 152,4 168,4"></polygon>
                 </g>
               </g>
               <polygon class="pointer" points="160,26 152,50 168,50"></polygon>
@@ -348,8 +346,6 @@
             </g>
             <!-- ALTIMETER -->
             <g id="alt-view" class="hidden">
-              <circle id="alt-arc-bg" cx="160" cy="160" r="128"></circle>
-              <circle id="alt-arc" cx="160" cy="160" r="128" stroke-dasharray="804" stroke-dashoffset="804"></circle>
               <g id="alt-ticks"></g>
               <g id="alt-needle">
                 <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
@@ -412,7 +408,6 @@
   const refMarker = document.getElementById('ref-marker');
 
   const altNeedle = document.getElementById('alt-needle');
-  const altArc = document.getElementById('alt-arc');
   const altNum = document.getElementById('alt-num');
   const altSub = document.getElementById('alt-sub');
   const refBtn = document.getElementById('ref-btn');
@@ -432,19 +427,22 @@
 
   const CIRC = 2 * Math.PI * 128; // ~804.2
 
+  const ALT_START_ANGLE = 216; // 0 arranca abajo-izquierda
+  const ALT_SWEEP = 288;       // 4/5 del círculo; el 1/5 restante es la zona muerta abajo
+
   function buildAltTicks(){
     const group = document.getElementById('alt-ticks');
     const cx = 160, cy = 160, rOuter = 140;
     const totalMeters = maxKmAltimeter * 1000;
     const steps = totalMeters / 100;
     let svg = '';
-    for (let i = 0; i < steps; i++){
+    for (let i = 0; i <= steps; i++){
       const meters = i * 100;
       const isKm = meters % 1000 === 0;
       const is500 = !isKm && meters % 500 === 0;
       const rInner = isKm ? rOuter - 16 : (is500 ? rOuter - 11 : rOuter - 7);
       const width = isKm ? 2.4 : (is500 ? 1.8 : 1.1);
-      const deg = (meters / totalMeters) * 360;
+      const deg = ALT_START_ANGLE + (meters / totalMeters) * ALT_SWEEP;
       const rad = (deg - 90) * Math.PI / 180;
       const x1 = cx + rOuter * Math.cos(rad), y1 = cy + rOuter * Math.sin(rad);
       const x2 = cx + rInner * Math.cos(rad), y2 = cy + rInner * Math.sin(rad);
@@ -610,10 +608,8 @@
     }
     const totalMeters = maxKmAltimeter * 1000;
     const clamped = Math.max(0, Math.min(currentAltitude, totalMeters));
-    const needleDeg = (clamped / totalMeters) * 360;
+    const needleDeg = ALT_START_ANGLE + (clamped / totalMeters) * ALT_SWEEP;
     altNeedle.style.transform = `rotate(${needleDeg}deg)`;
-    const dash = (clamped / totalMeters) * CIRC;
-    altArc.setAttribute('stroke-dashoffset', (CIRC - dash).toFixed(1));
   }
 
   function setCompassReference(){
