@@ -1,4 +1,4 @@
-const CACHE_NAME = 'instrumentos-v1';
+const CACHE_NAME = 'instrumentos-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -23,15 +23,17 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Red primero: si hay señal, siempre trae la versión más reciente y actualiza
+// la copia guardada. Si no hay señal (por ejemplo en el sendero), usa la
+// última copia que sí se guardó con éxito.
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        return caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, response.clone());
-          return response;
-        });
-      }).catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
