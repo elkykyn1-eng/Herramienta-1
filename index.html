@@ -119,6 +119,62 @@
   #compass-rose{transform-origin:160px 160px;transition:transform .15s ease-out;}
   .pointer{fill:var(--brass);}
   .ref-pointer{fill:var(--warn);}
+  .label-km{
+    fill:var(--brass);
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-weight:700;
+    font-size:13px;
+    text-anchor:middle;
+  }
+
+  #alt-settings-btn{
+    position:absolute;
+    top:10px;left:10px;z-index:5;
+    width:30px;height:30px;
+    border-radius:50%;
+    border:1px solid #333a44;
+    background:var(--panel);
+    color:var(--muted);
+    font-size:14px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  #alt-settings-btn:active{transform:translateY(1px);}
+  #alt-settings-panel{
+    position:absolute;
+    top:46px;left:10px;z-index:6;
+    background:var(--panel-2);
+    border:1px solid #333a44;
+    border-radius:12px;
+    padding:10px;
+    box-shadow:0 10px 24px -8px #000;
+    width:172px;
+  }
+  .settings-title{
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+  .km-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .km-grid button{
+    border:1px solid #333a44;
+    background:var(--panel);
+    color:var(--text);
+    font-family:ui-monospace,'SFMono-Regular','Roboto Mono',Menlo,Consolas,monospace;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 0;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .km-grid button.active{
+    background:var(--brass);
+    color:#1a1408;
+    border-color:var(--brass);
+  }
   .readout-overlay{
     position:absolute;inset:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -272,6 +328,11 @@
     <!-- Instrument (hidden until activated) -->
     <div id="instrument-wrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:22px;">
       <div class="instrument">
+        <button id="alt-settings-btn" class="hidden" aria-label="Configurar escala del altímetro">⚙</button>
+        <div id="alt-settings-panel" class="hidden">
+          <div class="settings-title">Escala máxima</div>
+          <div class="km-grid" id="km-grid"></div>
+        </div>
         <div class="face">
           <svg viewBox="0 0 320 320">
             <!-- COMPASS -->
@@ -289,6 +350,7 @@
             <g id="alt-view" class="hidden">
               <circle id="alt-arc-bg" cx="160" cy="160" r="128"></circle>
               <circle id="alt-arc" cx="160" cy="160" r="128" stroke-dasharray="804" stroke-dashoffset="804"></circle>
+              <g id="alt-ticks"></g>
               <g id="alt-needle">
                 <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
               </g>
@@ -355,6 +417,9 @@
   const altSub = document.getElementById('alt-sub');
   const refBtn = document.getElementById('ref-btn');
   const clearBtn = document.getElementById('clear-btn');
+  const altSettingsBtn = document.getElementById('alt-settings-btn');
+  const altSettingsPanel = document.getElementById('alt-settings-panel');
+  const kmGrid = document.getElementById('km-grid');
 
   let mode = 'compass';
   let compassActive = false;
@@ -363,8 +428,67 @@
   let referenceAltitude = null;
   let currentAltitude = null;
   let currentAccuracy = null;
+  let maxKmAltimeter = 5;
 
   const CIRC = 2 * Math.PI * 128; // ~804.2
+
+  function buildAltTicks(){
+    const group = document.getElementById('alt-ticks');
+    const cx = 160, cy = 160, rOuter = 140;
+    const totalMeters = maxKmAltimeter * 1000;
+    const steps = totalMeters / 100;
+    let svg = '';
+    for (let i = 0; i < steps; i++){
+      const meters = i * 100;
+      const isKm = meters % 1000 === 0;
+      const is500 = !isKm && meters % 500 === 0;
+      const rInner = isKm ? rOuter - 16 : (is500 ? rOuter - 11 : rOuter - 7);
+      const width = isKm ? 2.4 : (is500 ? 1.8 : 1.1);
+      const deg = (meters / totalMeters) * 360;
+      const rad = (deg - 90) * Math.PI / 180;
+      const x1 = cx + rOuter * Math.cos(rad), y1 = cy + rOuter * Math.sin(rad);
+      const x2 = cx + rInner * Math.cos(rad), y2 = cy + rInner * Math.sin(rad);
+      svg += `<line class="tick${isKm ? ' major' : ''}" style="stroke-width:${width}px" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+      if (isKm){
+        const km = meters / 1000;
+        const lx = cx + (rOuter - 28) * Math.cos(rad), ly = cy + (rOuter - 28) * Math.sin(rad);
+        svg += `<text class="label-km" x="${lx.toFixed(1)}" y="${(ly + 5).toFixed(1)}">${km}</text>`;
+      }
+    }
+    group.innerHTML = svg;
+  }
+  buildAltTicks();
+
+  function buildKmGrid(){
+    kmGrid.innerHTML = '';
+    for (let i = 1; i <= 10; i++){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = i;
+      if (i === maxKmAltimeter) b.classList.add('active');
+      b.addEventListener('click', () => {
+        maxKmAltimeter = i;
+        buildAltTicks();
+        buildKmGrid();
+        renderAltitude();
+        altSettingsPanel.classList.add('hidden');
+      });
+      kmGrid.appendChild(b);
+    }
+  }
+  buildKmGrid();
+
+  altSettingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    altSettingsPanel.classList.toggle('hidden');
+  });
+  document.addEventListener('click', (e) => {
+    if (!altSettingsPanel.classList.contains('hidden') &&
+        !altSettingsPanel.contains(e.target) &&
+        e.target !== altSettingsBtn){
+      altSettingsPanel.classList.add('hidden');
+    }
+  });
 
   function buildCompassTicks(){
     const group = document.getElementById('compass-ticks');
@@ -484,10 +608,11 @@
     } else {
       altSub.textContent = `abs. ${Math.round(currentAltitude)} m · desde referencia`;
     }
-    const frac = ((currentAltitude % 100) + 100) % 100;
-    const needleDeg = (frac/100) * 360;
+    const totalMeters = maxKmAltimeter * 1000;
+    const clamped = Math.max(0, Math.min(currentAltitude, totalMeters));
+    const needleDeg = (clamped / totalMeters) * 360;
     altNeedle.style.transform = `rotate(${needleDeg}deg)`;
-    const dash = (frac/100) * CIRC;
+    const dash = (clamped / totalMeters) * CIRC;
     altArc.setAttribute('stroke-dashoffset', (CIRC - dash).toFixed(1));
   }
 
@@ -532,6 +657,8 @@
       altView.classList.add('hidden');
       compassReadout.classList.remove('hidden');
       altReadout.classList.add('hidden');
+      altSettingsBtn.classList.add('hidden');
+      altSettingsPanel.classList.add('hidden');
     } else {
       btnAlt.classList.add('active');
       btnCompass.classList.remove('active');
@@ -539,6 +666,7 @@
       compassView.classList.add('hidden');
       altReadout.classList.remove('hidden');
       compassReadout.classList.add('hidden');
+      altSettingsBtn.classList.remove('hidden');
     }
   }
   btnCompass.addEventListener('click', ()=>setMode('compass'));
