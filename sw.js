@@ -1,10 +1,12 @@
-const CACHE_NAME = 'instrumentos-v2';
+const CACHE_NAME = 'instrumentos-v4';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './screenshot-compass.png',
+  './screenshot-altimeter.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -23,17 +25,18 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Red primero: si hay señal, siempre trae la versión más reciente y actualiza
-// la copia guardada. Si no hay señal (por ejemplo en el sendero), usa la
-// última copia que sí se guardó con éxito.
+// Caché primero (respuesta instantánea, ideal sin señal en el sendero),
+// y en paralelo actualiza la copia guardada si hay conexión disponible.
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+    caches.match(event.request).then((cached) => {
+      const network = fetch(event.request)
+        .then((response) => {
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
   );
 });
