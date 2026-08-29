@@ -1,7 +1,10 @@
 {
+  "id": "/",
   "name": "Instrumentos de Campo",
   "short_name": "Instrumentos",
   "description": "Altímetro y brújula para uso en campo, sin conexión.",
+  "lang": "es",
+  "categories": ["utilities", "navigation", "travel"],
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
