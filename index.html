@@ -183,6 +183,29 @@
     color:#1a1408;
     border-color:var(--brass);
   }
+  .source-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .source-grid button{
+    border:1px solid #333a44;
+    background:var(--panel);
+    color:var(--brass);
+    font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.02em;
+    padding:7px 4px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .source-grid button.active{
+    background:var(--brass);
+    color:#1a1408;
+    border-color:var(--brass);
+  }
+  .source-grid button.unavailable{
+    color:#4a5058;
+    border-color:#2a3038;
+    cursor:not-allowed;
+  }
   #info-strip{
     display:flex;
     flex-wrap:wrap;
@@ -373,6 +396,8 @@
         <div id="alt-settings-panel" class="hidden">
           <div class="settings-title">Escala máxima</div>
           <div class="km-grid" id="km-grid"></div>
+          <div class="settings-title" style="margin-top:12px;">Fuente de altitud</div>
+          <div class="source-grid" id="source-grid"></div>
         </div>
         <div class="face">
           <svg viewBox="0 0 320 320">
@@ -481,6 +506,14 @@
   let currentLat = null;
   let currentLon = null;
   let maxKmAltimeter = 5;
+  let altSource = 'gps'; // 'gps' | 'barometro'
+
+  // Detección real: ningún navegador expone hoy un sensor de barómetro a
+  // páginas web (ni siquiera dentro de un .apk tipo Trusted Web Activity,
+  // que es solo Chrome sin barra). Esto queda listo para detectarlo
+  // automáticamente si el soporte llega, o para conectarlo a una fuente
+  // nativa el día que la app deje de ser un simple envoltorio web.
+  const hasBarometer = (typeof window.Barometer === 'function');
   let infoState = 0;
 
   function polarPoint(cx, cy, r, angleDeg){
@@ -546,6 +579,36 @@
     }
   }
   buildKmGrid();
+
+  const sourceGrid = document.getElementById('source-grid');
+  function buildSourceGrid(){
+    sourceGrid.innerHTML = '';
+    const options = [
+      { id: 'gps', label: 'GPS', available: true },
+      { id: 'barometro', label: 'Barómetro', available: hasBarometer }
+    ];
+    options.forEach((opt) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = opt.label;
+      if (!opt.available){
+        b.classList.add('unavailable');
+        b.disabled = true;
+      } else if (altSource === opt.id){
+        b.classList.add('active');
+      }
+      if (opt.available){
+        b.addEventListener('click', () => {
+          altSource = opt.id;
+          buildSourceGrid();
+          // La lectura real por barómetro se conecta más adelante; por ahora
+          // solo queda seleccionada la fuente para cuando esté disponible.
+        });
+      }
+      sourceGrid.appendChild(b);
+    });
+  }
+  buildSourceGrid();
 
   altSettingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
