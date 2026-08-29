@@ -108,7 +108,7 @@
     font-size:10px;
     text-anchor:middle;
   }
-  #compass-rose{transform-origin:160px 160px;transition:transform .15s ease-out;}
+  #compass-rose{transform-origin:160px 160px;}
   .pointer{fill:var(--brass);}
   .ref-pointer{fill:var(--warn);}
   .label-km{
@@ -241,7 +241,7 @@
   #alt-ref-needle{transform-origin:160px 160px;transition:transform .2s ease-out;}
   .ref-pointer-thin{fill:var(--warn);}
   .delta-arc{fill:none;stroke-linecap:round;opacity:.85;}
-  #heading-delta-arc{stroke:var(--warn);stroke-width:10;}
+  #heading-delta-arc{stroke:var(--warn);stroke-width:5;}
   #alt-delta-arc{stroke:var(--brass);stroke-width:5;}
 
   .hidden{display:none !important;}
@@ -393,7 +393,7 @@
               <g id="alt-ticks"></g>
               <path id="alt-delta-arc" class="delta-arc hidden" d=""></path>
               <g id="alt-ref-needle" class="hidden">
-                <polygon class="ref-pointer-thin" points="160,42 157,24 163,24"></polygon>
+                <polygon class="ref-pointer-thin" points="160,42 157,4 163,4"></polygon>
               </g>
               <g id="alt-needle">
                 <polygon class="pointer" points="160,42 155,160 165,160"></polygon>
